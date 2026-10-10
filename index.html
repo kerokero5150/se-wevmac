@@ -136,7 +136,7 @@ footer a { color: inherit; }
         </div>
         <ul class="disks" id="disklist"></ul>
         <p class="msg" id="diskmsg" role="status"></p>
-        <p class="hint">Insert a .dsk or .img floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes are kept only until you close the page.</p>
+        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes are kept only until you close the page.</p>
         <p class="hint">Download saves an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete. Images up to 512 MB.</p>
         <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode.</p>
       </div>
@@ -257,19 +257,55 @@ footer a { color: inherit; }
   }
 
   // Each inserted image lives in the emulator's in-memory file system; the Mac writes to that copy.
-  function listDisk(name, path) {
+  // A hard disk image such as a BlueSCSI .hda starts with a driver descriptor block ("ER") and an
+  // Apple partition map ("PM"). Mini vMac wants the bare HFS volume, so find that partition.
+  // Returns null for a plain volume image, or { off, len } / { error } for a partitioned one.
+  function findVolume(b) {
+    if (b.length < 1536 || b[0] !== 0x45 || b[1] !== 0x52) return null;
+    var bs = (b[2] << 8) | b[3];
+    if (bs < 512 || b[bs] !== 0x50 || b[bs + 1] !== 0x4D) return null;
+    var u32 = function (o) { return ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0; };
+    var count = Math.min(u32(bs + 4), 64);
+    for (var i = 1; i <= count; i++) {
+      var e = i * bs;
+      if (e + 80 > b.length || b[e] !== 0x50 || b[e + 1] !== 0x4D) break;
+      var type = "";
+      for (var k = 0; k < 32 && b[e + 48 + k]; k++) type += String.fromCharCode(b[e + 48 + k]);
+      if (type !== "Apple_HFS") continue;
+      var off = u32(e + 8) * bs, len = u32(e + 12) * bs;
+      if (off + len > b.length) len = b.length - off;
+      if (len < 2048 || b[off + 1024] !== 0x42 || b[off + 1025] !== 0x44) continue;
+      return { off: off, len: len };
+    }
+    return { error: true };
+  }
+  // Turn a chosen file into what goes in the drive. `whole` keeps the full image for download.
+  function prepare(name, bytes) {
+    var v = findVolume(bytes);
+    if (!v) return { name: name, bytes: bytes };
+    if (v.error) return { error: name + " is a partitioned hard disk image, but no HFS partition was found in it." };
+    return { name: name, bytes: bytes.subarray(v.off, v.off + v.len), whole: bytes, off: v.off };
+  }
+
+  function listDisk(name, path, d) {
     var li = document.createElement("li");
     var n = document.createElement("span"); n.className = "name"; n.textContent = name;
     var b = document.createElement("button"); b.type = "button"; b.textContent = "Download";
     b.disabled = !mod;
-    b.onclick = function () { download(name, path); };
+    b.onclick = function () { download(name, path, d); };
     li.appendChild(n); li.appendChild(b);
     $("disklist").appendChild(li);
   }
-  function download(name, path) {
+  function download(name, path, d) {
     var bytes;
     try { bytes = mod.FS.readFile(path); }
     catch (e) { say($("diskmsg"), "Couldn't read " + name + " back.", true); return; }
+    if (d && d.whole) {
+      // Put the edited volume back into its place in the hard disk image.
+      var full = new Uint8Array(d.whole);
+      full.set(bytes, d.off);
+      bytes = full;
+    }
     var url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
     var a = document.createElement("a");
     a.href = url; a.download = name;
@@ -278,12 +314,13 @@ footer a { color: inherit; }
     say($("diskmsg"), "Saved " + name + ".");
   }
 
-  function insert(name, bytes) {
+  function insert(d) {
+    var name = d.name;
     var path = "/disk" + (++diskCount) + "_" + name.replace(/[^A-Za-z0-9._-]/g, "_");
-    mod.FS.writeFile(path, bytes);
+    mod.FS.writeFile(path, d.bytes);
     var ok = mod.ccall("wevmac_insert_disk", "number", ["string"], [path]);
-    if (ok) listDisk(name, path); else mod.FS.unlink(path);
-    say($("diskmsg"), ok ? "Inserted " + name + "." : "The Mac couldn't take " + name + ". All drives may be full.", !ok);
+    if (ok) listDisk(name, path, d); else mod.FS.unlink(path);
+    say($("diskmsg"), ok ? "Inserted " + name + (d.whole ? " (its HFS partition)." : ".") : "The Mac couldn't take " + name + ". All drives may be full.", !ok);
     canvas.focus();
   }
 
@@ -347,10 +384,11 @@ footer a { color: inherit; }
     }
     var r = new FileReader();
     r.onload = function () {
-      var b = new Uint8Array(r.result);
-      if (mod) insert(f.name, b);
+      var d = prepare(f.name, new Uint8Array(r.result));
+      if (d.error) say($("diskmsg"), d.error, true);
+      else if (mod) insert(d);
       else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
-      else { pendingDisks.push({ name: f.name, bytes: b }); listDisk(f.name, "/disk" + pendingDisks.length + ".dsk"); say($("diskmsg"), f.name + " will be in the drive at startup."); refresh(); }
+      else { pendingDisks.push(d); listDisk(d.name, "/disk" + pendingDisks.length + ".dsk", d); say($("diskmsg"), d.name + " will be in the drive at startup."); refresh(); }
       ev.target.value = "";
     };
     r.readAsArrayBuffer(f);
