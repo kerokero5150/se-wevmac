@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SE WevMac</title>
+<title>Kero's SE WevMac</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Silkscreen&display=swap">
 <style>
 /* Layout: the Mac's screen sits in a platinum bezel at the top; the controls are System 6 windows below it. */
@@ -74,6 +74,9 @@ button:disabled { opacity: .4; cursor: default; }
 label.opt { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; cursor: pointer; }
 label.opt input { margin-top: 4px; }
 .hint { color: var(--muted); font-size: 13px; margin: 0; }
+.disks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.disks:empty { display: none; }
+.disks li { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .name { font: 13px var(--font-mono); overflow-wrap: anywhere; min-width: 0; }
 .msg { font-size: 13px; min-height: 1.5em; margin: 0; color: var(--accent); }
 .msg.err { color: var(--warn); }
@@ -85,7 +88,7 @@ footer a { color: inherit; }
 <body>
 <div class="wrap">
   <header>
-    <h1>SE We<b>vMac</b></h1>
+    <h1>Kero's SE We<b>vMac</b></h1>
     <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock ROM, or load your own SE ROM-inator image and boot from its ROM disk.</p>
   </header>
 
@@ -99,7 +102,7 @@ footer a { color: inherit; }
       </div>
     </div>
     <div class="maclabel">
-      <span>Macintosh SE</span>
+      <span>Mac SE Emulator</span>
       <span class="sizes">Screen
         <button type="button" data-scale="1" aria-pressed="false">1×</button>
         <button type="button" data-scale="1.5" aria-pressed="false">1.5×</button>
@@ -131,8 +134,10 @@ footer a { color: inherit; }
           <span class="filebtn" id="diskbtn">Insert disk image…<input type="file" id="diskfile" aria-label="Insert a disk image"></span>
           <button id="restart" type="button">Restart</button>
         </div>
+        <ul class="disks" id="disklist"></ul>
         <p class="msg" id="diskmsg" role="status"></p>
         <p class="hint">Insert a .dsk or .img floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes are kept only until you close the page.</p>
+        <p class="hint">Download saves an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete. Images up to 512 MB.</p>
         <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode.</p>
       </div>
     </section>
@@ -149,6 +154,7 @@ footer a { color: inherit; }
   var canvas = $("canvas");
   var stockRom = null, ownRom = null, ownName = "";
   var running = false, mod = null, pendingDisks = [], diskCount = 0;
+  var MAX_DISK = 512 * 1024 * 1024;
 
   function say(el, msg, isErr) { el.textContent = msg; el.className = "msg" + (isErr ? " err" : ""); }
 
@@ -250,10 +256,33 @@ footer a { color: inherit; }
     });
   }
 
+  // Each inserted image lives in the emulator's in-memory file system; the Mac writes to that copy.
+  function listDisk(name, path) {
+    var li = document.createElement("li");
+    var n = document.createElement("span"); n.className = "name"; n.textContent = name;
+    var b = document.createElement("button"); b.type = "button"; b.textContent = "Download";
+    b.disabled = !mod;
+    b.onclick = function () { download(name, path); };
+    li.appendChild(n); li.appendChild(b);
+    $("disklist").appendChild(li);
+  }
+  function download(name, path) {
+    var bytes;
+    try { bytes = mod.FS.readFile(path); }
+    catch (e) { say($("diskmsg"), "Couldn't read " + name + " back.", true); return; }
+    var url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    say($("diskmsg"), "Saved " + name + ".");
+  }
+
   function insert(name, bytes) {
     var path = "/disk" + (++diskCount) + "_" + name.replace(/[^A-Za-z0-9._-]/g, "_");
     mod.FS.writeFile(path, bytes);
     var ok = mod.ccall("wevmac_insert_disk", "number", ["string"], [path]);
+    if (ok) listDisk(name, path); else mod.FS.unlink(path);
     say($("diskmsg"), ok ? "Inserted " + name + "." : "The Mac couldn't take " + name + ". All drives may be full.", !ok);
     canvas.focus();
   }
@@ -282,6 +311,7 @@ footer a { color: inherit; }
       mod = m;
       m.FS.writeFile(info.variant === "SE" ? "MacSE.ROM" : "SEFDHD.ROM", image);
       pendingDisks.forEach(function (d, i) { m.FS.writeFile("disk" + (i + 1) + ".dsk", d.bytes); });
+      Array.prototype.forEach.call($("disklist").querySelectorAll("button"), function (b) { b.disabled = false; });
       $("curtain").hidden = true;
       canvas.focus();
       if (holdR) {
@@ -310,12 +340,17 @@ footer a { color: inherit; }
   $("diskfile").addEventListener("change", function (ev) {
     var f = ev.target.files && ev.target.files[0];
     if (!f) return;
+    if (f.size > MAX_DISK) {
+      say($("diskmsg"), f.name + " is " + Math.round(f.size / 1048576).toLocaleString() + " MB. This page takes disk images up to 512 MB.", true);
+      ev.target.value = "";
+      return;
+    }
     var r = new FileReader();
     r.onload = function () {
       var b = new Uint8Array(r.result);
       if (mod) insert(f.name, b);
       else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
-      else { pendingDisks.push({ name: f.name, bytes: b }); say($("diskmsg"), f.name + " will be in the drive at startup."); refresh(); }
+      else { pendingDisks.push({ name: f.name, bytes: b }); listDisk(f.name, "/disk" + pendingDisks.length + ".dsk"); say($("diskmsg"), f.name + " will be in the drive at startup."); refresh(); }
       ev.target.value = "";
     };
     r.readAsArrayBuffer(f);
