@@ -173,7 +173,7 @@ footer a { color: inherit; }
     var cm = $("curtainmsg");
     if (running) return;
     if ($("rom-own").checked) cm.textContent = ownRom ? "Ready with " + ownName + "." : "Choose your ROM file below.";
-    else cm.textContent = stockRom ? "Ready with the stock ROM." : stockState;
+    else cm.textContent = !stockRom ? stockState : pendingDisks.length ? "Ready with the stock ROM and " + pendingDisks[0].name + "." : "Ready with the stock ROM. It has no startup disk of its own, so insert a disk image below first.";
     var big = !!rom && rom.length === 0x100000;
     $("holdr").disabled = !big;
     if (!big) $("holdr").checked = false;
@@ -315,7 +315,7 @@ footer a { color: inherit; }
       var b = new Uint8Array(r.result);
       if (mod) insert(f.name, b);
       else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
-      else { pendingDisks.push({ name: f.name, bytes: b }); say($("diskmsg"), f.name + " will be in the drive at startup."); }
+      else { pendingDisks.push({ name: f.name, bytes: b }); say($("diskmsg"), f.name + " will be in the drive at startup."); refresh(); }
       ev.target.value = "";
     };
     r.readAsArrayBuffer(f);
