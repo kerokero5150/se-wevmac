@@ -42,7 +42,8 @@ header p { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
 .tube { background: #000; border-radius: 10px; padding: 10px; position: relative; line-height: 0; max-width: 100%; overflow: hidden; }
 #canvas { display: block; background: #000; image-rendering: pixelated; max-width: 100%; height: auto; outline: none; }
 #curtain { position: absolute; inset: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #d8dad5; line-height: 1.4; text-align: center; padding: 12px; }
-#curtain[hidden] { display: none; }
+#curtain[hidden], #cover[hidden] { display: none; }
+#cover { position: absolute; inset: 10px; background-image: conic-gradient(#000 25%, #fff 0 50%, #000 0 75%, #fff 0); image-rendering: pixelated; }
 #curtain p { margin: 0; font-size: 13px; max-width: 34ch; }
 .maclabel { display: flex; justify-content: space-between; align-items: center; gap: 12px; font: 11px var(--font-display); letter-spacing: .06em; color: #45433c; }
 .maclabel .sizes { display: flex; gap: 6px; align-items: center; }
@@ -91,6 +92,7 @@ footer a { color: inherit; }
   <div class="mac">
     <div class="tube">
       <canvas id="canvas" width="512" height="342" tabindex="0" aria-label="Macintosh SE screen"></canvas>
+      <div id="cover" hidden></div>
       <div id="curtain">
         <button id="start" type="button" class="primary">Start</button>
         <p id="curtainmsg">Checking the built-in ROM…</p>
@@ -283,6 +285,12 @@ footer a { color: inherit; }
       $("curtain").hidden = true;
       canvas.focus();
       if (holdR) {
+        // Before its prompt the ROM briefly draws the plain floppy icon, which reads as "no disk".
+        // Cover the screen with the same gray desktop until the prompt is due.
+        var cover = $("cover"), px = 2 * canvas.clientWidth / 512;
+        cover.style.backgroundSize = px + "px " + px + "px";
+        cover.hidden = false;
+        setTimeout(function () { cover.hidden = true; }, 6400);
         // The ROM shows "Press and hold r now" about 7 seconds after power-on, for about 2 seconds.
         // Wait until it is on screen, then keep R down (as a held key repeats) long enough to be seen.
         setTimeout(function () {
