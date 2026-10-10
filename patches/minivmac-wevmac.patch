@@ -1,0 +1,20 @@
+diff --git a/src/OSGLUSDL.c b/src/OSGLUSDL.c
+index 0cc026b..d8c80af 100644
+--- a/src/OSGLUSDL.c
++++ b/src/OSGLUSDL.c
+@@ -5281,6 +5281,15 @@ LOCALPROC UnInitOSGLU(void)
+ #endif
+ }
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++/* SE WevMac: let the page insert a disk image that it wrote into the virtual file system. */
++EMSCRIPTEN_KEEPALIVE int wevmac_insert_disk(char *path)
++{
++	return Sony_Insert1(path, falseblnr) ? 1 : 0;
++}
++#endif
++
+ int main(int argc, char **argv)
+ {
+ 	my_argc = argc;
