@@ -86,7 +86,7 @@ footer a { color: inherit; }
 <div class="wrap">
   <header>
     <h1>SE We<b>vMac</b></h1>
-    <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock SE FDHD ROM, or load your own SE ROM-inator image and boot from its ROM disk.</p>
+    <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock ROM, or load your own SE ROM-inator image and boot from its ROM disk.</p>
   </header>
 
   <div class="mac">
@@ -112,7 +112,7 @@ footer a { color: inherit; }
     <section class="win">
       <h2><span>ROM</span></h2>
       <div class="body">
-        <label class="opt"><input type="radio" name="romsrc" id="rom-stock" value="stock" checked> <span>Macintosh SE FDHD, stock ROM</span></label>
+        <label class="opt"><input type="radio" name="romsrc" id="rom-stock" value="stock" checked> <span>Stock ROM</span></label>
         <label class="opt"><input type="radio" name="romsrc" id="rom-own" value="own"> <span>Your ROM file</span></label>
         <div class="row">
           <span class="filebtn" id="rombtn">Choose ROM…<input type="file" id="romfile" aria-label="Choose a Mac SE ROM file"></span>
@@ -173,7 +173,7 @@ footer a { color: inherit; }
     var cm = $("curtainmsg");
     if (running) return;
     if ($("rom-own").checked) cm.textContent = ownRom ? "Ready with " + ownName + "." : "Choose your ROM file below.";
-    else cm.textContent = stockRom ? "Ready with the stock SE FDHD ROM." : stockState;
+    else cm.textContent = stockRom ? "Ready with the stock ROM." : stockState;
     var big = !!rom && rom.length === 0x100000;
     $("holdr").disabled = !big;
     if (!big) $("holdr").checked = false;
