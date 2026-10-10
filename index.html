@@ -42,8 +42,7 @@ header p { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
 .tube { background: #000; border-radius: 10px; padding: 10px; position: relative; line-height: 0; max-width: 100%; overflow: hidden; }
 #canvas { display: block; background: #000; image-rendering: pixelated; max-width: 100%; height: auto; outline: none; }
 #curtain { position: absolute; inset: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #d8dad5; line-height: 1.4; text-align: center; padding: 12px; }
-#curtain[hidden], #cover[hidden] { display: none; }
-#cover { position: absolute; inset: 10px; background-image: conic-gradient(#000 25%, #fff 0 50%, #000 0 75%, #fff 0); image-rendering: pixelated; }
+#curtain[hidden] { display: none; }
 #curtain p { margin: 0; font-size: 13px; max-width: 34ch; }
 .maclabel { display: flex; justify-content: space-between; align-items: center; gap: 12px; font: 11px var(--font-display); letter-spacing: .06em; color: #45433c; }
 .maclabel .sizes { display: flex; gap: 6px; align-items: center; }
@@ -89,13 +88,12 @@ footer a { color: inherit; }
 <div class="wrap">
   <header>
     <h1>Kero's SE We<b>vMac</b></h1>
-    <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock ROM, or load your own SE ROM-inator image and boot from its ROM disk.</p>
+    <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock ROM, or load your own Mac SE ROM file.</p>
   </header>
 
   <div class="mac">
     <div class="tube">
       <canvas id="canvas" width="512" height="342" tabindex="0" aria-label="Macintosh SE screen"></canvas>
-      <div id="cover" hidden></div>
       <div id="curtain">
         <button id="start" type="button" class="primary">Start</button>
         <p id="curtainmsg">Checking the built-in ROM…</p>
@@ -121,9 +119,8 @@ footer a { color: inherit; }
           <span class="filebtn" id="rombtn">Choose ROM…<input type="file" id="romfile" aria-label="Choose a Mac SE ROM file"></span>
           <span class="name" id="romname"></span>
         </div>
-        <label class="opt"><input type="checkbox" id="holdr"> <span>Hold <kbd>R</kbd> at startup to boot from the ROM disk</span></label>
         <p class="msg" id="rommsg" role="status"></p>
-        <p class="hint">A ROM you choose is read inside this page only. It is never uploaded, and it is gone when you close or reload the page. Use a 256K Mac SE ROM or a 1 MB SE ROM-inator image.</p>
+        <p class="hint">A ROM you choose is read inside this page only. It is never uploaded, and it is gone when you close or reload the page. Use a 256K Mac SE ROM.</p>
       </div>
     </section>
 
@@ -136,7 +133,7 @@ footer a { color: inherit; }
         </div>
         <ul class="disks" id="disklist"></ul>
         <p class="msg" id="diskmsg" role="status"></p>
-        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes are kept only until you close the page.</p>
+        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The Mac needs a startup disk. Changes are kept only until you close the page.</p>
         <p class="hint">Download saves an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete. Images up to 512 MB.</p>
         <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode.</p>
       </div>
@@ -158,17 +155,17 @@ footer a { color: inherit; }
 
   function say(el, msg, isErr) { el.textContent = msg; el.className = "msg" + (isErr ? " err" : ""); }
 
-  // Byte $32 differs between the two Mac SE ROM revisions and are not touched by ROM-inator patches.
+  // Byte $32 differs between the two Mac SE ROM revisions.
   function inspect(bytes) {
-    if (bytes.length !== 0x40000 && bytes.length !== 0x100000) {
-      return { error: "That file is " + bytes.length.toLocaleString() + " bytes. A Mac SE ROM is 262,144 bytes, and a ROM-inator image is 1,048,576." };
+    if (bytes.length !== 0x40000) {
+      return { error: "That file is " + bytes.length.toLocaleString() + " bytes. A Mac SE ROM is 262,144 bytes." };
     }
     var variant = bytes[0x31] === 0xB2 && bytes[0x32] === 0x47 ? "SEFDHD" : bytes[0x31] === 0xB2 && bytes[0x32] === 0x23 ? "SE" : null;
     if (!variant) return { error: "That doesn't look like a Mac SE ROM." };
-    return { variant: variant, big: bytes.length === 0x100000 };
+    return { variant: variant };
   }
   function describe(info) {
-    return (info.variant === "SEFDHD" ? "Mac SE FDHD" : "Mac SE (early)") + (info.big ? ", 1 MB ROM-inator image" : ", 256K ROM");
+    return (info.variant === "SEFDHD" ? "Mac SE FDHD" : "Mac SE (early)") + ", 256K ROM";
   }
   function current() {
     return $("rom-own").checked ? ownRom : stockRom;
@@ -178,11 +175,9 @@ footer a { color: inherit; }
     $("start").disabled = !ready;
     var cm = $("curtainmsg");
     if (running) return;
-    if ($("rom-own").checked) cm.textContent = ownRom ? "Ready with " + ownName + "." : "Choose your ROM file below.";
-    else cm.textContent = !stockRom ? stockState : pendingDisks.length ? "Ready with the stock ROM and " + pendingDisks[0].name + "." : "Ready with the stock ROM. It has no startup disk of its own, so insert a disk image below first.";
-    var big = !!rom && rom.length === 0x100000;
-    $("holdr").disabled = !big;
-    if (!big) $("holdr").checked = false;
+    var disk = pendingDisks.length ? " and " + pendingDisks[0].name + "." : ". It has no startup disk of its own, so insert a disk image below first.";
+    if ($("rom-own").checked) cm.textContent = ownRom ? "Ready with " + ownName + disk : "Choose your ROM file below.";
+    else cm.textContent = !stockRom ? stockState : "Ready with the stock ROM" + disk;
   }
 
   var stockState = "Checking the built-in ROM…";
@@ -215,7 +210,6 @@ footer a { color: inherit; }
         $("rom-own").checked = true;
         say($("rommsg"), describe(info) + ".");
         refresh();
-        if (info.big) $("holdr").checked = true;
       }
       ev.target.value = "";
     };
@@ -239,14 +233,6 @@ footer a { color: inherit; }
     if (!(s === 1 || s === 1.5 || s === 2)) s = window.innerWidth >= 1140 ? 2 : window.innerWidth >= 860 ? 1.5 : 1;
     setScale(s);
   })();
-
-  // The emulator reads the keyboard through SDL, which looks at keyCode.
-  function key(type, code, keyCode, ch) {
-    var e = new KeyboardEvent(type, { key: ch, code: code, bubbles: true, cancelable: true });
-    Object.defineProperty(e, "keyCode", { get: function () { return keyCode; } });
-    Object.defineProperty(e, "which", { get: function () { return keyCode; } });
-    window.dispatchEvent(e);
-  }
 
   function loadScript(src) {
     return new Promise(function (ok, fail) {
@@ -333,8 +319,6 @@ footer a { color: inherit; }
     $("curtainmsg").textContent = "Starting…";
     $("rom-stock").disabled = $("rom-own").disabled = true;
     $("rombtn").classList.add("off");
-    var holdR = $("holdr").checked;
-    $("holdr").disabled = true;
     // The build has a 1 MB ROM space. A 256K ROM is repeated to fill it, as it is mirrored on the real machine.
     var image = new Uint8Array(0x100000);
     for (var o = 0; o < 0x100000; o += rom.length) image.set(rom, o);
@@ -351,22 +335,6 @@ footer a { color: inherit; }
       Array.prototype.forEach.call($("disklist").querySelectorAll("button"), function (b) { b.disabled = false; });
       $("curtain").hidden = true;
       canvas.focus();
-      if (holdR) {
-        // Before its prompt the ROM briefly draws the plain floppy icon, which reads as "no disk".
-        // Cover the screen with the same gray desktop until the prompt is due.
-        var cover = $("cover"), px = 2 * canvas.clientWidth / 512;
-        cover.style.backgroundSize = px + "px " + px + "px";
-        cover.hidden = false;
-        setTimeout(function () { cover.hidden = true; }, 6400);
-        // The ROM shows "Press and hold r now" about 7 seconds after power-on, for about 2 seconds.
-        // Wait until it is on screen, then keep R down (as a held key repeats) long enough to be seen.
-        setTimeout(function () {
-          var held = 0, t = setInterval(function () {
-            key("keydown", "KeyR", 82, "r");
-            if (++held > 50) { clearInterval(t); key("keyup", "KeyR", 82, "r"); }
-          }, 200);
-        }, 7800);
-      }
       m._vmac_main(0, 0);
     }).catch(function () {
       running = false;
