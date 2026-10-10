@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build SE WevMac: Mini vMac for the Mac SE and SE FDHD, compiled to WebAssembly,
-# with a 1 MB ROM space so SE ROM-inator images (ROM disk at $440000) can be loaded.
+# with a 1 MB ROM space.
 #
 # Needs: emcc (Emscripten) with the SDL2 port, gcc, git.
 set -e
@@ -17,7 +17,7 @@ for V in SE SEFDHD; do
   rm -rf cfg bld
   ./setuptool -t lx64 -m $V -api sd2 -n "sewevmac" -sound 1 -mem 4M -speed z > setup.sh
   bash setup.sh
-  # ROM-inator images are 1 MB. A plain 256K ROM is repeated to fill the space by the page.
+  # A 256K ROM is repeated by the page to fill the 1 MB ROM space.
   sed -i 's/#define kROM_Size .*/#define kROM_Size 0x00100000/' cfg/CNFUDALL.h
   mkdir -p wbld_$V; OBJS=""
   for s in $SRCS; do

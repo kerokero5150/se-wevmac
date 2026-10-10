@@ -1,8 +1,8 @@
-# SE WevMac
+# Kero's SE WevMac
 
 Mini vMac for the Macintosh SE, running in a web browser.
 
-It is a WebAssembly build of [Mini vMac](https://www.gryphel.com/c/minivmac/) with one change that matters: the ROM space is 1 MB instead of 256K. That lets it load an SE ROM-inator image and boot from the ROM disk at `$440000`, the same way the real board does. Hold `R` at startup, or tick the box on the page and it holds the key for you.
+It is a WebAssembly build of [Mini vMac](https://www.gryphel.com/c/minivmac/). Start it with the stock ROM or your own 256K Mac SE ROM, insert a disk image, and download the image again with your changes.
 
 A ROM file you choose on the page is read by your browser and stays there. Nothing is uploaded.
 
