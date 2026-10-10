@@ -283,11 +283,14 @@ footer a { color: inherit; }
       $("curtain").hidden = true;
       canvas.focus();
       if (holdR) {
-        // Keep R down, as a held key repeats, until the ROM has had time to see it.
-        var held = 0, t = setInterval(function () {
-          key("keydown", "KeyR", 82, "r");
-          if (++held > 100) { clearInterval(t); key("keyup", "KeyR", 82, "r"); }
-        }, 200);
+        // The ROM shows "Press and hold r now" about 7 seconds after power-on, for about 2 seconds.
+        // Wait until it is on screen, then keep R down (as a held key repeats) long enough to be seen.
+        setTimeout(function () {
+          var held = 0, t = setInterval(function () {
+            key("keydown", "KeyR", 82, "r");
+            if (++held > 50) { clearInterval(t); key("keyup", "KeyR", 82, "r"); }
+          }, 200);
+        }, 7800);
       }
       m._vmac_main(0, 0);
     }).catch(function () {
