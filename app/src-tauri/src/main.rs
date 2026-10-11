@@ -5,7 +5,7 @@ use tauri::ipc::{InvokeBody, Request};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri_plugin_dialog::DialogExt;
 
-const APP_NAME: &str = "Kero's SE WevMac";
+const APP_NAME: &str = "SE vMac Desktop";
 
 // Undo encodeURIComponent, which the page uses to get a file name through an HTTP header.
 fn percent_decode(s: &str) -> String {

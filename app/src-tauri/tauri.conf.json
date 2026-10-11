@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Kero's SE WevMac",
-  "mainBinaryName": "se-wevmac",
+  "productName": "SE vMac Desktop",
+  "mainBinaryName": "se-vmac-desktop",
   "version": "1.0.0",
   "identifier": "com.kerosmm.sewevmac",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Kero's SE WevMac",
+        "title": "SE vMac Desktop",
         "width": 1180,
         "height": 940,
         "minWidth": 600,

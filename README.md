@@ -6,9 +6,9 @@ It is a WebAssembly build of [Mini vMac](https://www.gryphel.com/c/minivmac/). S
 
 A ROM file you choose on the page is read by your browser and stays there. Nothing is uploaded.
 
-## Mac app
+## SE vMac Desktop
 
-`app/` wraps the same emulator in a Mac app, built with [Tauri](https://tauri.app). It runs offline and saves disk images through a normal save dialog. The app also takes a 1 MB SE ROM-inator image, as one file or as its HI and LO halves, and boots from the ROM disk when you hold `R` at startup.
+`app/` is SE vMac Desktop, the same emulator wrapped in a Mac app. It is built with [Tauri](https://tauri.app). It runs offline and saves disk images through a normal save dialog. The app also takes a 1 MB SE ROM-inator image, as one file or as its HI and LO halves, and boots from the ROM disk when you hold `R` at startup.
 
 Files go in and out with ImportFl and ExportFl, Paul C. Pratt's Mini vMac utilities. The app carries them on a tools disk (`app/web/tools/WevMacTools.dsk`, GPL v2, source included on the disk). Open ImportFl on the Mac and pick a file in the app to send it in. Open a file with ExportFl and the app asks where to save it.
 
@@ -27,7 +27,7 @@ It is not notarized. The first time, open it with a right-click and Open, or all
 - `docs/` is the web page and the two emulator builds (early Mac SE and SE FDHD). GitHub Pages serves this folder.
 - `patches/` is the small patch to Mini vMac and the commit it applies to.
 - `build.sh` rebuilds the emulator with Emscripten.
-- `app/` is the Mac app. It reuses the builds in `docs/` and has its own page in `app/web/`.
+- `app/` is SE vMac Desktop, the Mac app. It reuses the builds in `docs/` and has its own page in `app/web/`.
 
 ## Building
 
