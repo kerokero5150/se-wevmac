@@ -35,6 +35,9 @@
 html, body { margin: 0; }
 body { background: var(--desk); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
 .wrap { max-width: 1100px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 40px; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; align-items: center; gap: 14px; }
+/* The logo is a mask, so it takes the text color in both light and dark. */
+.logo { flex: none; width: 40px; aspect-ratio: 576 / 764; background: var(--ink); -webkit-mask: url("logo.png") center / contain no-repeat; mask: url("logo.png") center / contain no-repeat; }
 header h1 { font-family: var(--font-display); font-weight: 400; font-size: 22px; margin: 0; letter-spacing: .02em; }
 header h1 b { font-weight: 400; color: var(--accent); }
 header p { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
@@ -87,8 +90,11 @@ footer a { color: inherit; }
 <body>
 <div class="wrap">
   <header>
-    <h1>Kero's SE We<b>vMac</b></h1>
-    <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock ROM, or load your own Mac SE ROM file.</p>
+    <span class="logo" role="img" aria-label="Kero's Mac Mods logo"></span>
+    <div>
+      <h1>Kero's SE We<b>vMac</b></h1>
+      <p>Mini vMac for the Macintosh SE, in your browser. Start it with the stock ROM, or load your own Mac SE ROM file.</p>
+    </div>
   </header>
 
   <div class="mac">
