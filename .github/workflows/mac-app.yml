@@ -1,0 +1,32 @@
+name: Mac app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, mac-app]
+    paths:
+      - "app/**"
+      - "docs/**"
+      - ".github/workflows/mac-app.yml"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Add both Mac targets
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+      - name: Install the build tools
+        working-directory: app
+        run: npm ci
+      - name: Build the universal app
+        working-directory: app
+        run: npx tauri build --target universal-apple-darwin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SE-WevMac-mac
+          path: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error

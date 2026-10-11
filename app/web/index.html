@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kero's SE WevMac</title>
+<style>
+/* Fonts are bundled so the app works offline. */
+@font-face { font-family: "Silkscreen"; font-weight: 400; src: url("fonts/silkscreen-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; src: url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; src: url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; src: url("fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); }
+/* Layout: the Mac's screen sits in a platinum bezel at the top; the controls are System 6 windows below it. */
+:root {
+  --desk: #e9ebe6;
+  --paper: #ffffff;
+  --ink: #15171a;
+  --muted: #5d6368;
+  --line: #15171a;
+  --accent: #1f6f5c;
+  --bezel: #cfcbbd;
+  --bezel-edge: #8f8b7e;
+  --warn: #a4361f;
+  --font-display: "Silkscreen", "Courier New", monospace;
+  --font-body: "IBM Plex Sans", "Hiragino Sans", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --desk: #1b1e21; --paper: #25292d; --ink: #eceeea; --muted: #a2a8ac; --line: #eceeea;
+    --accent: #6fc9b2; --bezel: #4a4944; --bezel-edge: #2c2b28; --warn: #f08a70; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --desk: #1b1e21; --paper: #25292d; --ink: #eceeea; --muted: #a2a8ac; --line: #eceeea;
+  --accent: #6fc9b2; --bezel: #4a4944; --bezel-edge: #2c2b28; --warn: #f08a70; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--desk); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 40px; display: flex; flex-direction: column; gap: 20px; }
+header h1 { font-family: var(--font-display); font-weight: 400; font-size: 22px; margin: 0; letter-spacing: .02em; }
+header h1 b { font-weight: 400; color: var(--accent); }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
+.mac { align-self: center; max-width: 100%; background: var(--bezel); border: 2px solid var(--bezel-edge); border-radius: 14px; padding: 22px 22px 14px; display: flex; flex-direction: column; gap: 10px; }
+.tube { background: #000; border-radius: 10px; padding: 10px; position: relative; line-height: 0; max-width: 100%; overflow: hidden; }
+#canvas { display: block; background: #000; image-rendering: pixelated; max-width: 100%; height: auto; outline: none; }
+#curtain { position: absolute; inset: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #d8dad5; line-height: 1.4; text-align: center; padding: 12px; }
+#curtain[hidden], #cover[hidden] { display: none; }
+#cover { position: absolute; inset: 10px; background-image: conic-gradient(#000 25%, #fff 0 50%, #000 0 75%, #fff 0); image-rendering: pixelated; }
+#curtain p { margin: 0; font-size: 13px; max-width: 34ch; }
+.maclabel { display: flex; justify-content: space-between; align-items: center; gap: 12px; font: 11px var(--font-display); letter-spacing: .06em; color: #45433c; }
+.maclabel .sizes { display: flex; gap: 6px; align-items: center; }
+.maclabel button { font: 11px var(--font-display); min-height: 24px; padding: 2px 8px; border-radius: 4px; background: transparent; color: #26251f; border: 1px solid #6e6b60; }
+.maclabel button[aria-pressed="true"] { background: #26251f; color: #e9e6da; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+.win { background: var(--paper); border: 1.5px solid var(--line); box-shadow: 2px 2px 0 var(--line); min-width: 0; }
+.win > h2 {
+  font-family: var(--font-display); font-weight: 400; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  margin: 0; padding: 5px 10px; border-bottom: 1.5px solid var(--line); text-align: center;
+  background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 3px) center / calc(100% - 16px) 11px no-repeat;
+}
+.win > h2 span { background: var(--paper); padding: 0 8px; }
+.body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, .filebtn {
+  font: 500 13px var(--font-body); color: var(--ink); background: var(--paper);
+  border: 1.5px solid var(--line); border-radius: 7px; padding: 5px 12px; cursor: pointer; min-height: 32px;
+}
+button:hover:not(:disabled), .filebtn:hover { background: var(--ink); color: var(--paper); }
+button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--line); margin: 3px; }
+#curtain button.primary { background: #f4f5f1; color: #15171a; border-color: #f4f5f1; box-shadow: 0 0 0 1.5px #000, 0 0 0 3px #f4f5f1; font-size: 15px; padding: 7px 20px; }
+button:disabled { opacity: .4; cursor: default; }
+.filebtn { display: inline-flex; align-items: center; position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.filebtn.off { opacity: .4; pointer-events: none; }
+label.opt { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+label.opt input { margin-top: 4px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.disks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.disks:empty { display: none; }
+.disks li { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.name { font: 13px var(--font-mono); overflow-wrap: anywhere; min-width: 0; }
+.msg { font-size: 13px; min-height: 1.5em; margin: 0; color: var(--accent); }
+.msg.err { color: var(--warn); }
+kbd { font: 12px var(--font-mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+footer { color: var(--muted); font-size: 12px; }
+footer a { color: inherit; }
+body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Kero's SE We<b>vMac</b></h1>
+    <p>Mini vMac for the Macintosh SE. Start it with the stock ROM, or load an SE ROM-inator image and boot from its ROM disk.</p>
+  </header>
+
+  <div class="mac">
+    <div class="tube">
+      <canvas id="canvas" width="512" height="342" tabindex="0" aria-label="Macintosh SE screen"></canvas>
+      <div id="cover" hidden></div>
+      <div id="curtain">
+        <button id="start" type="button" class="primary">Start</button>
+        <p id="curtainmsg">Checking the built-in ROM…</p>
+      </div>
+    </div>
+    <div class="maclabel">
+      <span>Mac SE Emulator</span>
+      <span class="sizes">Screen
+        <button type="button" data-scale="1" aria-pressed="false">1×</button>
+        <button type="button" data-scale="1.5" aria-pressed="false">1.5×</button>
+        <button type="button" data-scale="2" aria-pressed="false">2×</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="pair">
+    <section class="win">
+      <h2><span>ROM</span></h2>
+      <div class="body">
+        <label class="opt"><input type="radio" name="romsrc" id="rom-stock" value="stock" checked> <span>Stock ROM</span></label>
+        <label class="opt"><input type="radio" name="romsrc" id="rom-own" value="own"> <span>Your ROM file</span></label>
+        <div class="row">
+          <span class="filebtn" id="rombtn">Choose ROM…<input type="file" id="romfile" multiple aria-label="Choose a Mac SE ROM file"></span>
+          <span class="name" id="romname"></span>
+        </div>
+        <label class="opt"><input type="checkbox" id="holdr"> <span>Hold <kbd>R</kbd> at startup to boot from the ROM disk</span></label>
+        <p class="msg" id="rommsg" role="status"></p>
+        <p class="hint">Use a 256K Mac SE ROM, a 1 MB SE ROM-inator image, or the HI and LO halves of one (choose both files together). You can also drop ROM and disk files on the window.</p>
+      </div>
+    </section>
+
+    <section class="win">
+      <h2><span>Disks</span></h2>
+      <div class="body">
+        <div class="row">
+          <span class="filebtn" id="diskbtn">Insert disk image…<input type="file" id="diskfile" aria-label="Insert a disk image"></span>
+          <button id="restart" type="button">Restart</button>
+        </div>
+        <ul class="disks" id="disklist"></ul>
+        <p class="msg" id="diskmsg" role="status"></p>
+        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes stay in memory until you save the image.</p>
+        <p class="hint">Save writes an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete. Images up to 512 MB.</p>
+        <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode. <kbd>⌘</kbd> shortcuts such as <kbd>⌘</kbd><kbd>Q</kbd> go to the Mac inside; quit the app from its menu.</p>
+      </div>
+    </section>
+  </div>
+
+  <footer>Built on <a href="https://www.gryphel.com/c/minivmac/" target="_blank" rel="noopener">Mini vMac</a> by Paul C. Pratt and contributors, GPL v2. <a id="srclink" href="https://github.com/kerokero5150/se-wevmac" target="_blank" rel="noopener">Source for this build</a>. A Kero's Mac Mods tool.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var STOCK_URL = "roms/SEFDHD.ROM";
+  var $ = function (id) { return document.getElementById(id); };
+  var canvas = $("canvas");
+  var stockRom = null, ownRom = null, ownName = "";
+  var running = false, mod = null, pendingDisks = [], diskCount = 0;
+  var MAX_DISK = 512 * 1024 * 1024;
+
+  function say(el, msg, isErr) { el.textContent = msg; el.className = "msg" + (isErr ? " err" : ""); }
+
+  // Byte $32 differs between the two Mac SE ROM revisions and is not touched by ROM-inator patches.
+  function inspect(bytes) {
+    if (bytes.length !== 0x40000 && bytes.length !== 0x100000) {
+      return { error: "That file is " + bytes.length.toLocaleString() + " bytes. A Mac SE ROM is 262,144 bytes, and a ROM-inator image is 1,048,576." };
+    }
+    var variant = bytes[0x31] === 0xB2 && bytes[0x32] === 0x47 ? "SEFDHD" : bytes[0x31] === 0xB2 && bytes[0x32] === 0x23 ? "SE" : null;
+    if (!variant) return { error: "That doesn't look like a Mac SE ROM." };
+    return { variant: variant, big: bytes.length === 0x100000 };
+  }
+  function describe(info) {
+    return (info.variant === "SEFDHD" ? "Mac SE FDHD" : "Mac SE (early)") + (info.big ? ", 1 MB ROM-inator image" : ", 256K ROM");
+  }
+  // The flash chips hold the ROM as two byte lanes: HI has the even bytes, LO the odd ones.
+  function weave(hi, lo) {
+    var out = new Uint8Array(0x100000);
+    for (var i = 0; i < 0x80000; i++) { out[2 * i] = hi[i]; out[2 * i + 1] = lo[i]; }
+    return out;
+  }
+  function current() {
+    return $("rom-own").checked ? ownRom : stockRom;
+  }
+  function refresh() {
+    var rom = current(), ready = !!rom && !running;
+    $("start").disabled = !ready;
+    var cm = $("curtainmsg");
+    if (running) return;
+    var big = !!rom && rom.length === 0x100000;
+    var disk = pendingDisks.length ? " and " + pendingDisks[0].name + "." : big ? "." : ". It has no startup disk of its own, so insert a disk image below first.";
+    if ($("rom-own").checked) cm.textContent = ownRom ? "Ready with " + ownName + disk : "Choose your ROM file below.";
+    else cm.textContent = !stockRom ? stockState : "Ready with the stock ROM" + disk;
+    $("holdr").disabled = !big;
+    if (!big) $("holdr").checked = false;
+  }
+
+  var stockState = "Checking the built-in ROM…";
+  fetch(STOCK_URL).then(function (r) {
+    if (!r.ok) throw new Error("missing");
+    return r.arrayBuffer();
+  }).then(function (buf) {
+    var b = new Uint8Array(buf), info = inspect(b);
+    if (info.error) throw new Error("bad");
+    stockRom = b;
+    refresh();
+  }).catch(function () {
+    stockState = "The built-in ROM isn't available. Choose your own ROM file below.";
+    $("rom-stock").disabled = true;
+    $("rom-own").checked = true;
+    refresh();
+  });
+
+  $("rom-stock").onchange = $("rom-own").onchange = refresh;
+  function readFile(f) {
+    return new Promise(function (ok, fail) {
+      var r = new FileReader();
+      r.onload = function () { ok(new Uint8Array(r.result)); };
+      r.onerror = fail;
+      r.readAsArrayBuffer(f);
+    });
+  }
+  function useRom(bytes, name) {
+    var info = inspect(bytes);
+    if (info.error) { say($("rommsg"), info.error, true); return; }
+    ownRom = bytes; ownName = name;
+    $("romname").textContent = name;
+    $("rom-own").checked = true;
+    say($("rommsg"), describe(info) + ".");
+    refresh();
+    if (info.big) $("holdr").checked = true;
+  }
+  // Takes the files from the chooser or a drop: one ROM image, or the two 512K halves of a ROM-inator image.
+  function takeRom(files) {
+    if (running) { say($("rommsg"), "Restart before changing the ROM.", true); return; }
+    if (files.length === 1 && files[0].size === 0x80000) {
+      say($("rommsg"), files[0].name + " is one half of a split ROM. Choose the HI and LO files together.", true);
+      return;
+    }
+    if (files.length === 2 && files[0].size === 0x80000 && files[1].size === 0x80000) {
+      Promise.all([readFile(files[0]), readFile(files[1])]).then(function (b) {
+        // Work out which file is HI by seeing which order gives a Mac SE ROM.
+        var rom = weave(b[0], b[1]), name = files[0].name + " + " + files[1].name;
+        if (inspect(rom).error) { rom = weave(b[1], b[0]); name = files[1].name + " + " + files[0].name; }
+        if (inspect(rom).error) say($("rommsg"), "Those two files don't make a Mac SE ROM.", true);
+        else useRom(rom, name);
+      });
+      return;
+    }
+    if (files.length !== 1) { say($("rommsg"), "Choose one ROM file, or the HI and LO halves of one.", true); return; }
+    readFile(files[0]).then(function (b) { useRom(b, files[0].name); });
+  }
+  $("romfile").addEventListener("change", function (ev) {
+    var files = Array.prototype.slice.call(ev.target.files || []);
+    if (files.length) takeRom(files);
+    ev.target.value = "";
+  });
+
+  // Screen size
+  function setScale(s) {
+    canvas.style.width = Math.round(512 * s) + "px";
+    Array.prototype.forEach.call(document.querySelectorAll("[data-scale]"), function (b) {
+      b.setAttribute("aria-pressed", String(parseFloat(b.dataset.scale) === s));
+    });
+    try { localStorage.setItem("wevmac-scale", String(s)); } catch (e) {}
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-scale]"), function (b) {
+    b.onclick = function () { setScale(parseFloat(b.dataset.scale)); canvas.focus(); };
+  });
+  (function () {
+    var s = 0;
+    try { s = parseFloat(localStorage.getItem("wevmac-scale")); } catch (e) {}
+    if (!(s === 1 || s === 1.5 || s === 2)) s = window.innerWidth >= 1140 ? 2 : window.innerWidth >= 860 ? 1.5 : 1;
+    setScale(s);
+  })();
+
+  // The emulator reads the keyboard through SDL, which looks at keyCode.
+  function key(type, code, keyCode, ch) {
+    var e = new KeyboardEvent(type, { key: ch, code: code, bubbles: true, cancelable: true });
+    Object.defineProperty(e, "keyCode", { get: function () { return keyCode; } });
+    Object.defineProperty(e, "which", { get: function () { return keyCode; } });
+    window.dispatchEvent(e);
+  }
+
+  function loadScript(src) {
+    return new Promise(function (ok, fail) {
+      var s = document.createElement("script");
+      s.src = src; s.onload = ok; s.onerror = fail;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Each inserted image lives in the emulator's in-memory file system; the Mac writes to that copy.
+  // A hard disk image such as a BlueSCSI .hda starts with a driver descriptor block ("ER") and an
+  // Apple partition map ("PM"). Mini vMac wants the bare HFS volume, so find that partition.
+  // Returns null for a plain volume image, or { off, len } / { error } for a partitioned one.
+  function findVolume(b) {
+    if (b.length < 1536 || b[0] !== 0x45 || b[1] !== 0x52) return null;
+    var bs = (b[2] << 8) | b[3];
+    if (bs < 512 || b[bs] !== 0x50 || b[bs + 1] !== 0x4D) return null;
+    var u32 = function (o) { return ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0; };
+    var count = Math.min(u32(bs + 4), 64);
+    for (var i = 1; i <= count; i++) {
+      var e = i * bs;
+      if (e + 80 > b.length || b[e] !== 0x50 || b[e + 1] !== 0x4D) break;
+      var type = "";
+      for (var k = 0; k < 32 && b[e + 48 + k]; k++) type += String.fromCharCode(b[e + 48 + k]);
+      if (type !== "Apple_HFS") continue;
+      var off = u32(e + 8) * bs, len = u32(e + 12) * bs;
+      if (off + len > b.length) len = b.length - off;
+      if (len < 2048 || b[off + 1024] !== 0x42 || b[off + 1025] !== 0x44) continue;
+      return { off: off, len: len };
+    }
+    return { error: true };
+  }
+  // Turn a chosen file into what goes in the drive. `whole` keeps the full image for download.
+  function prepare(name, bytes) {
+    var v = findVolume(bytes);
+    if (!v) return { name: name, bytes: bytes };
+    if (v.error) return { error: name + " is a partitioned hard disk image, but no HFS partition was found in it." };
+    return { name: name, bytes: bytes.subarray(v.off, v.off + v.len), whole: bytes, off: v.off };
+  }
+
+  function listDisk(name, path, d) {
+    var li = document.createElement("li");
+    var n = document.createElement("span"); n.className = "name"; n.textContent = name;
+    var b = document.createElement("button"); b.type = "button"; b.textContent = "Save…";
+    b.disabled = !mod;
+    b.onclick = function () { download(name, path, d); };
+    li.appendChild(n); li.appendChild(b);
+    $("disklist").appendChild(li);
+  }
+  function download(name, path, d) {
+    var bytes;
+    try { bytes = mod.FS.readFile(path); }
+    catch (e) { say($("diskmsg"), "Couldn't read " + name + " back.", true); return; }
+    if (d && d.whole) {
+      // Put the edited volume back into its place in the hard disk image.
+      var full = new Uint8Array(d.whole);
+      full.set(bytes, d.off);
+      bytes = full;
+    }
+    var tauri = window.__TAURI__;
+    if (tauri) {
+      // In the app a web view can't download, so the Rust side shows a save dialog and writes the file.
+      tauri.core.invoke("save_disk", bytes, { headers: { "x-file-name": encodeURIComponent(name) } }).then(function (path) {
+        if (path) say($("diskmsg"), "Saved " + path + ".");
+      }).catch(function (e) {
+        say($("diskmsg"), "Couldn't save " + name + ": " + e, true);
+      });
+      return;
+    }
+    var url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    say($("diskmsg"), "Saved " + name + ".");
+  }
+
+  function insert(d) {
+    var name = d.name;
+    var path = "/disk" + (++diskCount) + "_" + name.replace(/[^A-Za-z0-9._-]/g, "_");
+    mod.FS.writeFile(path, d.bytes);
+    var ok = mod.ccall("wevmac_insert_disk", "number", ["string"], [path]);
+    if (ok) listDisk(name, path, d); else mod.FS.unlink(path);
+    say($("diskmsg"), ok ? "Inserted " + name + (d.whole ? " (its HFS partition)." : ".") : "The Mac couldn't take " + name + ". All drives may be full.", !ok);
+    canvas.focus();
+  }
+
+  $("start").onclick = function () {
+    var rom = current();
+    if (!rom || running) return;
+    var info = inspect(rom);
+    running = true;
+    $("start").disabled = true;
+    $("curtainmsg").textContent = "Starting…";
+    $("rom-stock").disabled = $("rom-own").disabled = true;
+    $("rombtn").classList.add("off");
+    var holdR = $("holdr").checked;
+    $("holdr").disabled = true;
+    // The build has a 1 MB ROM space. A 256K ROM is repeated to fill it, as it is mirrored on the real machine.
+    var image = new Uint8Array(0x100000);
+    for (var o = 0; o < 0x100000; o += rom.length) image.set(rom, o);
+    loadScript("wevmac_" + info.variant + ".js").then(function () {
+      return window["WevMac_" + info.variant]({
+        canvas: canvas,
+        print: function () {}, printErr: function () {},
+        locateFile: function (f) { return f; }
+      });
+    }).then(function (m) {
+      mod = m;
+      m.FS.writeFile(info.variant === "SE" ? "MacSE.ROM" : "SEFDHD.ROM", image);
+      pendingDisks.forEach(function (d, i) { m.FS.writeFile("disk" + (i + 1) + ".dsk", d.bytes); });
+      Array.prototype.forEach.call($("disklist").querySelectorAll("button"), function (b) { b.disabled = false; });
+      $("curtain").hidden = true;
+      canvas.focus();
+      if (holdR) {
+        // Before its prompt the ROM briefly draws the plain floppy icon, which reads as "no disk".
+        // Cover the screen with the same gray desktop until the prompt is due.
+        var cover = $("cover"), px = 2 * canvas.clientWidth / 512;
+        cover.style.backgroundSize = px + "px " + px + "px";
+        cover.hidden = false;
+        setTimeout(function () { cover.hidden = true; }, 6400);
+        // The ROM shows "Press and hold r now" about 7 seconds after power-on, for about 2 seconds.
+        // Wait until it is on screen, then keep R down (as a held key repeats) long enough to be seen.
+        setTimeout(function () {
+          var held = 0, t = setInterval(function () {
+            key("keydown", "KeyR", 82, "r");
+            if (++held > 50) { clearInterval(t); key("keyup", "KeyR", 82, "r"); }
+          }, 200);
+        }, 7800);
+      }
+      m._vmac_main(0, 0);
+    }).catch(function () {
+      running = false;
+      $("curtainmsg").textContent = "The emulator couldn't start.";
+    });
+  };
+
+  function takeDisk(f) {
+    if (f.size > MAX_DISK) {
+      say($("diskmsg"), f.name + " is " + Math.round(f.size / 1048576).toLocaleString() + " MB. Disk images can be up to 512 MB.", true);
+      return;
+    }
+    readFile(f).then(function (bytes) {
+      var d = prepare(f.name, bytes);
+      if (d.error) say($("diskmsg"), d.error, true);
+      else if (mod) insert(d);
+      else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
+      else { pendingDisks.push(d); listDisk(d.name, "/disk" + pendingDisks.length + ".dsk", d); say($("diskmsg"), d.name + " will be in the drive at startup."); refresh(); }
+    });
+  }
+  $("diskfile").addEventListener("change", function (ev) {
+    var f = ev.target.files && ev.target.files[0];
+    if (f) takeDisk(f);
+    ev.target.value = "";
+  });
+
+  // Files dropped on the window: ROM-sized files go to the ROM chooser, anything else is a disk image.
+  function isRomSize(n) { return n === 0x40000 || n === 0x80000 || n === 0x100000; }
+  window.addEventListener("dragover", function (ev) { ev.preventDefault(); document.body.classList.add("dropping"); });
+  window.addEventListener("dragleave", function () { document.body.classList.remove("dropping"); });
+  window.addEventListener("drop", function (ev) {
+    ev.preventDefault();
+    document.body.classList.remove("dropping");
+    var files = Array.prototype.slice.call((ev.dataTransfer && ev.dataTransfer.files) || []);
+    var roms = files.filter(function (f) { return isRomSize(f.size); });
+    if (roms.length) takeRom(roms);
+    files.filter(function (f) { return !isRomSize(f.size); }).forEach(takeDisk);
+  });
+
+  // Ctrl-click would open the web view's context menu instead of reaching the Mac.
+  canvas.addEventListener("contextmenu", function (ev) { ev.preventDefault(); });
+
+  // The web view doesn't open new windows, so hand links to the default browser.
+  document.addEventListener("click", function (ev) {
+    var a = ev.target.closest && ev.target.closest("a[href^='http']");
+    if (!a || !window.__TAURI__) return;
+    ev.preventDefault();
+    window.__TAURI__.opener.openUrl(a.href);
+  });
+
+  $("restart").onclick = function () { location.reload(); };
+  refresh();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kero's SE WevMac",
+  "mainBinaryName": "se-wevmac",
+  "version": "1.0.0",
+  "identifier": "com.kerosmm.sewevmac",
+  "build": {
+    "beforeBuildCommand": "node prepare.mjs",
+    "beforeDevCommand": "node prepare.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kero's SE WevMac",
+        "width": 1180,
+        "height": 940,
+        "minWidth": 600,
+        "minHeight": 520,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "category": "Utility",
+    "copyright": "Mini vMac © Paul C. Pratt and contributors. GPL v2.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    }
+  }
+}
