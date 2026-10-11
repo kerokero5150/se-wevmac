@@ -10,6 +10,8 @@ A ROM file you choose on the page is read by your browser and stays there. Nothi
 
 `app/` wraps the same emulator in a Mac app, built with [Tauri](https://tauri.app). It runs offline and saves disk images through a normal save dialog. The app also takes a 1 MB SE ROM-inator image, as one file or as its HI and LO halves, and boots from the ROM disk when you hold `R` at startup.
 
+Files go in and out with ImportFl and ExportFl, Paul C. Pratt's Mini vMac utilities. The app carries them on a tools disk (`app/web/tools/WevMacTools.dsk`, GPL v2, source included on the disk). Open ImportFl on the Mac and pick a file in the app to send it in. Open a file with ExportFl and the app asks where to save it.
+
 To build it on a Mac you need Node.js, Rust, and the Xcode command line tools:
 
     cd app
@@ -33,7 +35,7 @@ You need Emscripten with its SDL2 port, plus gcc and git.
 
     ./build.sh
 
-The script clones Mini vMac at the pinned commit, applies the patch, and writes the builds into `docs/`.
+The script clones Mini vMac at the pinned commit, applies the patch, and writes the builds into `docs/`. The patch adds what the page needs from the emulator: inserting a disk from the page, the file name and new-file calls that ImportFl and ExportFl use, and a notice when the Mac ejects something.
 
 ## Credits and license
 

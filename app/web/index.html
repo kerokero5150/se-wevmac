@@ -86,6 +86,9 @@ label.opt input { margin-top: 4px; }
 .disks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .disks:empty { display: none; }
 .disks li { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.disks li .row { flex-wrap: nowrap; flex: none; }
+.disks li.out .name { color: var(--muted); }
+.disks li.out .name::after { content: " (ejected)"; font-family: var(--font-body); }
 .name { font: 13px var(--font-mono); overflow-wrap: anywhere; min-width: 0; }
 .msg { font-size: 13px; min-height: 1.5em; margin: 0; color: var(--accent); }
 .msg.err { color: var(--warn); }
@@ -150,9 +153,23 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
         </div>
         <ul class="disks" id="disklist"></ul>
         <p class="msg" id="diskmsg" role="status"></p>
-        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes stay in memory until you save the image. Before you press Start, Remove takes a ROM or disk back out; after that, eject disks on the Mac, or press Restart to begin again.</p>
+        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes stay in memory until you save the image. Before you press Start, Remove takes a ROM or disk back out; after that, eject a disk on the Mac and its row here gets a Remove button, or press Restart to begin again.</p>
         <p class="hint">Save writes an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete.</p>
         <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode. <kbd>⌘</kbd> shortcuts such as <kbd>⌘</kbd><kbd>Q</kbd> go to the Mac inside; quit the app from its menu.</p>
+      </div>
+    </section>
+
+    <section class="win">
+      <h2><span>Files</span></h2>
+      <div class="body">
+        <div class="row">
+          <button id="toolsbtn" type="button">Insert tools disk</button>
+          <span class="filebtn off" id="sendbtn">Send file to Mac…<input type="file" id="sendfile" multiple aria-label="Send a file to the Mac"></span>
+        </div>
+        <ul class="disks" id="filelist"></ul>
+        <p class="msg" id="filemsg" role="status"></p>
+        <p class="hint">The tools disk holds ImportFl and ExportFl by Paul C. Pratt. To send a file in, open ImportFl on the Mac, then choose the file here or drop it on the window. To get a file out, open it with ExportFl and it is saved to this computer.</p>
+        <p class="hint">Only the data fork crosses. Pack applications and anything else with a resource fork (StuffIt, MacBinary) before sending them either way.</p>
       </div>
     </section>
   </div>
@@ -364,7 +381,23 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     }
     btns.appendChild(b);
     li.appendChild(btns);
+    li.dataset.path = path.replace(/^\//, "");
     $("disklist").appendChild(li);
+  }
+  // The Mac ejected a disk: say so on its row and let the row be removed.
+  function diskEjected(path) {
+    var key = path.replace(/^\//, "");
+    Array.prototype.forEach.call($("disklist").children, function (li) {
+      if (li.dataset.path !== key || li.classList.contains("out")) return;
+      li.classList.add("out");
+      var x = document.createElement("button"); x.type = "button"; x.textContent = "Remove";
+      x.onclick = function () {
+        try { mod.FS.unlink("/" + key); } catch (e) {}
+        li.remove();
+      };
+      var row = li.querySelector(".row");
+      row.insertBefore(x, row.firstChild);
+    });
   }
   // Redraw the waiting disks. Their drive order, and so their file names, follow the list.
   function listPending() {
@@ -381,13 +414,19 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
       full.set(bytes, d.off);
       bytes = full;
     }
+    saveBytes(name, bytes, $("diskmsg"));
+  }
+  // Write bytes to a file the user picks. Calls done(true) once it is saved.
+  function saveBytes(name, bytes, msgEl, done) {
     var tauri = window.__TAURI__;
     if (tauri) {
       // In the app a web view can't download, so the Rust side shows a save dialog and writes the file.
       tauri.core.invoke("save_disk", bytes, { headers: { "x-file-name": encodeURIComponent(name) } }).then(function (path) {
-        if (path) say($("diskmsg"), "Saved " + path + ".");
+        if (path) say(msgEl, "Saved " + path + ".");
+        if (done) done(!!path);
       }).catch(function (e) {
-        say($("diskmsg"), "Couldn't save " + name + ": " + e, true);
+        say(msgEl, "Couldn't save " + name + ": " + e, true);
+        if (done) done(false);
       });
       return;
     }
@@ -396,9 +435,9 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     a.href = url; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
-    say($("diskmsg"), "Saved " + name + ".");
+    say(msgEl, "Saved " + name + ".");
+    if (done) done(true);
   }
-
   function insert(d) {
     var name = d.name;
     var path = "/disk" + (++diskCount) + "_" + name.replace(/[^A-Za-z0-9._-]/g, "_");
@@ -434,6 +473,8 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
       });
     }).then(function (m) {
       mod = m;
+      m.wevmacEjected = onEjected;
+      watchRawMode();
       m.FS.writeFile(info.variant === "SE" ? "MacSE.ROM" : "SEFDHD.ROM", image);
       pendingDisks.forEach(function (d, i) { m.FS.writeFile("disk" + (i + 1) + ".dsk", d.bytes); });
       Array.prototype.forEach.call($("disklist").querySelectorAll("button.rm"), function (b) { b.remove(); });
@@ -461,6 +502,105 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
       running = false;
       $("curtainmsg").textContent = "The emulator couldn't start.";
     });
+  };
+
+  // ---- File transfer with ImportFl and ExportFl ----
+  var sendCount = 0, rawMode = false, toolsBytes = null;
+
+  // A file name the Mac can take: plain ASCII, no colon, at most 31 characters, extension kept.
+  function macSafeName(name) {
+    var n = name.replace(/[^\x20-\x7E]/g, "_").replace(/[:\/]/g, "_").replace(/^\.+/, "_") || "file";
+    if (n.length <= 31) return n;
+    var dot = n.lastIndexOf("."), ext = dot > 0 && n.length - dot <= 8 ? n.slice(dot) : "";
+    return n.slice(0, 31 - ext.length) + ext;
+  }
+  // A name the Mac gave: ASCII as is, otherwise try Shift-JIS (KanjiTalk), then MacRoman.
+  function hostName(bytes) {
+    var ascii = true, i;
+    for (i = 0; i < bytes.length; i++) if (bytes[i] >= 128) ascii = false;
+    var name = "";
+    if (ascii) { for (i = 0; i < bytes.length; i++) name += String.fromCharCode(bytes[i]); }
+    else {
+      try { name = new TextDecoder("shift_jis", { fatal: true }).decode(bytes); }
+      catch (e) { try { name = new TextDecoder("macintosh").decode(bytes); } catch (e2) { name = ""; } }
+    }
+    name = name.replace(/[\/\\:\x00-\x1F]/g, "_");
+    return name || "Exported file";
+  }
+
+  // ImportFl takes whatever is inserted next as a raw file, and asks the emulator for its name.
+  function sendFile(f) {
+    readFile(f).then(function (bytes) {
+      var dir = "/in/" + (++sendCount), path = dir + "/" + macSafeName(f.name);
+      try { mod.FS.mkdirTree(dir); mod.FS.writeFile(path, bytes); }
+      catch (e) { say($("filemsg"), "Couldn't load " + f.name + ". There wasn't enough memory for it.", true); return; }
+      var ok = mod.ccall("wevmac_insert_disk", "number", ["string"], [path]);
+      if (!ok) { try { mod.FS.unlink(path); } catch (e) {} }
+      say($("filemsg"), ok ? "Sent " + f.name + ". Choose where to save it on the Mac." : "The Mac couldn't take " + f.name + ". Try again when ImportFl is ready.", !ok);
+      canvas.focus();
+    }, function () {
+      say($("filemsg"), "Couldn't read " + f.name + ".", true);
+    });
+  }
+  $("sendfile").addEventListener("change", function (ev) {
+    var files = Array.prototype.slice.call(ev.target.files || []);
+    if (mod && rawMode) files.forEach(sendFile);
+    ev.target.value = "";
+  });
+
+  // A file ExportFl wrote: list it, and in the app ask right away where to save it.
+  function fileExported(path, nameBytes) {
+    var name = hostName(nameBytes), bytes;
+    try { bytes = mod.FS.readFile(path); mod.FS.unlink(path); }
+    catch (e) { say($("filemsg"), "Couldn't read " + name + " back.", true); return; }
+    var li = document.createElement("li");
+    var n = document.createElement("span"); n.className = "name"; n.textContent = name;
+    var btns = document.createElement("span"); btns.className = "row";
+    var x = document.createElement("button"); x.type = "button"; x.textContent = "Remove";
+    x.onclick = function () { li.remove(); };
+    var b = document.createElement("button"); b.type = "button"; b.textContent = "Save…";
+    b.onclick = function () { saveBytes(name, bytes, $("filemsg")); };
+    btns.appendChild(x); btns.appendChild(b);
+    li.appendChild(n); li.appendChild(btns);
+    $("filelist").appendChild(li);
+    say($("filemsg"), name + " came from the Mac (" + bytes.length.toLocaleString() + " bytes).");
+    if (window.__TAURI__) b.onclick();
+  }
+
+  // Called by the emulator whenever the Mac ejects something.
+  function onEjected(path, isNew, nameBytes) {
+    // Let the emulator finish the eject before touching its files.
+    setTimeout(function () {
+      if (isNew) fileExported(path, nameBytes);
+      else if (path.indexOf("/in/") === 0) { try { mod.FS.unlink(path); } catch (e) {} }
+      else diskEjected(path);
+    }, 0);
+  }
+
+  // Send is only useful while ImportFl is in front, which is when the Mac asks for raw inserts.
+  function watchRawMode() {
+    setInterval(function () {
+      var now = !!mod._wevmac_raw_mode();
+      if (now === rawMode) return;
+      rawMode = now;
+      $("sendbtn").classList.toggle("off", !rawMode);
+      say($("filemsg"), rawMode ? "ImportFl is ready. Choose a file to send." : "");
+    }, 400);
+  }
+
+  $("toolsbtn").onclick = function () {
+    var use = function (bytes) {
+      var d = { name: "WevMac Tools.dsk", bytes: new Uint8Array(bytes) };
+      if (mod) insert(d);
+      else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
+      else { pendingDisks.push(d); listPending(); say($("diskmsg"), d.name + " will be in the drive at startup."); refresh(); }
+    };
+    if (toolsBytes) { use(toolsBytes); return; }
+    fetch("tools/WevMacTools.dsk").then(function (r) {
+      if (!r.ok) throw new Error("missing");
+      return r.arrayBuffer();
+    }).then(function (buf) { toolsBytes = new Uint8Array(buf); use(toolsBytes); })
+      .catch(function () { say($("filemsg"), "The tools disk isn't available.", true); });
   };
 
   function takeDisk(f) {
@@ -492,6 +632,7 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     ev.preventDefault();
     document.body.classList.remove("dropping");
     var files = Array.prototype.slice.call((ev.dataTransfer && ev.dataTransfer.files) || []);
+    if (mod && rawMode) { files.forEach(sendFile); return; }
     var roms = files.filter(function (f) { return isRomSize(f.size); });
     if (roms.length) takeRom(roms);
     files.filter(function (f) { return !isRomSize(f.size); }).forEach(takeDisk);

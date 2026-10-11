@@ -1,8 +1,256 @@
 diff --git a/src/OSGLUSDL.c b/src/OSGLUSDL.c
-index 0cc026b..d8c80af 100644
+index 0cc026b..c754bba 100644
 --- a/src/OSGLUSDL.c
 +++ b/src/OSGLUSDL.c
-@@ -5281,6 +5281,15 @@ LOCALPROC UnInitOSGLU(void)
+@@ -273,6 +273,25 @@ LOCALPROC NativeStrFromCStr(char *r, char *s)
+ 
+ LOCALVAR MyFilePtr Drives[NumDrives]; /* open disk image files */
+ 
++#if IncludeSonyGetName || IncludeSonyNew
++/*
++	SE WevMac: the path of each inserted image, so the Mac can ask for
++	a file's name (ImportFl) and make new host files (ExportFl).
++*/
++#include <sys/stat.h>
++#ifdef __EMSCRIPTEN__
++#include <emscripten.h>
++#endif
++LOCALVAR char *DriveNames[NumDrives];
++LOCALVAR blnr DriveIsNew[NumDrives]; /* file was made by the Mac */
++LOCALVAR ui3p DriveMacNames[NumDrives]; /* name the Mac gave it */
++LOCALVAR ui5b DriveMacNameLens[NumDrives];
++LOCALVAR blnr NextInsertIsNew = falseblnr;
++LOCALVAR ui3p NextInsertMacName = NULL;
++LOCALVAR ui5b NextInsertMacNameLen = 0;
++LOCALVAR ui5b NewDiskCounter = 0;
++#endif
++
+ LOCALPROC InitDrives(void)
+ {
+ 	/*
+@@ -283,6 +302,12 @@ LOCALPROC InitDrives(void)
+ 
+ 	for (i = 0; i < NumDrives; ++i) {
+ 		Drives[i] = NotAfileRef;
++#if IncludeSonyGetName || IncludeSonyNew
++		DriveNames[i] = NULL;
++		DriveIsNew[i] = falseblnr;
++		DriveMacNames[i] = NULL;
++		DriveMacNameLens[i] = 0;
++#endif
+ 	}
+ }
+ 
+@@ -361,6 +386,41 @@ LOCALFUNC tMacErr vSonyEject0(tDrive Drive_No, blnr deleteit)
+ 	MyFileClose(refnum);
+ 	Drives[Drive_No] = NotAfileRef; /* not really needed */
+ 
++#if IncludeSonyGetName || IncludeSonyNew
++	{
++		char *s = DriveNames[Drive_No];
++		if (NULL != s) {
++			if (deleteit) {
++				remove(s);
++			}
++#ifdef __EMSCRIPTEN__
++			else {
++				/*
++					Tell the page which file was ejected. For a file
++					the Mac made (ExportFl) this is when it is finished.
++				*/
++				EM_ASM({
++					if (Module.wevmacEjected) {
++						Module.wevmacEjected(UTF8ToString($0), $1,
++							HEAPU8.slice($2, $2 + $3));
++					}
++				}, s, DriveIsNew[Drive_No] ? 1 : 0,
++					DriveMacNames[Drive_No],
++					DriveMacNameLens[Drive_No]);
++			}
++#endif
++			free(s);
++			DriveNames[Drive_No] = NULL;
++		}
++		if (NULL != DriveMacNames[Drive_No]) {
++			free(DriveMacNames[Drive_No]);
++			DriveMacNames[Drive_No] = NULL;
++		}
++		DriveMacNameLens[Drive_No] = 0;
++		DriveIsNew[Drive_No] = falseblnr;
++	}
++#endif
++
+ 	return mnvm_noErr;
+ }
+ 
+@@ -369,6 +429,43 @@ GLOBALOSGLUFUNC tMacErr vSonyEject(tDrive Drive_No)
+ 	return vSonyEject0(Drive_No, falseblnr);
+ }
+ 
++#if IncludeSonyNew
++GLOBALOSGLUFUNC tMacErr vSonyEjectDelete(tDrive Drive_No)
++{
++	return vSonyEject0(Drive_No, trueblnr);
++}
++#endif
++
++#if IncludeSonyGetName
++GLOBALOSGLUFUNC tMacErr vSonyGetName(tDrive Drive_No, tPbuf *r)
++{
++	/*
++		The name is the last part of the path. The page only uses
++		plain ASCII there, which is the same in MacRoman.
++	*/
++	char *drivepath = DriveNames[Drive_No];
++	if (NULL == drivepath) {
++		return mnvm_miscErr;
++	} else {
++		ui5b L;
++		ui3p p;
++		char *s = strrchr(drivepath, '/');
++		if (NULL == s) {
++			s = drivepath;
++		} else {
++			++s;
++		}
++		L = strlen(s);
++		p = (ui3p)malloc((0 == L) ? 1 : L);
++		if (NULL == p) {
++			return mnvm_miscErr;
++		}
++		(void) memcpy(p, s, L);
++		return PbufNewFromPtr(p, L, r);
++	}
++}
++#endif
++
+ LOCALPROC UnInitDrives(void)
+ {
+ 	tDrive i;
+@@ -402,10 +499,34 @@ LOCALFUNC blnr Sony_Insert0(MyFilePtr refnum, blnr locked,
+ 			Drives[Drive_No] = refnum;
+ 			DiskInsertNotify(Drive_No, locked);
+ 
++#if IncludeSonyGetName || IncludeSonyNew
++			{
++				ui5b L = strlen(drivepath);
++				char *p = malloc(L + 1);
++				if (p != NULL) {
++					(void) memcpy(p, drivepath, L + 1);
++				}
++				DriveNames[Drive_No] = p;
++				DriveIsNew[Drive_No] = NextInsertIsNew;
++				DriveMacNames[Drive_No] = NextInsertMacName;
++				DriveMacNameLens[Drive_No] = NextInsertMacNameLen;
++				NextInsertMacName = NULL;
++			}
++#endif
++
+ 			IsOk = trueblnr;
+ 		}
+ 	}
+ 
++#if IncludeSonyGetName || IncludeSonyNew
++	NextInsertIsNew = falseblnr;
++	if (NULL != NextInsertMacName) {
++		free(NextInsertMacName);
++		NextInsertMacName = NULL;
++	}
++	NextInsertMacNameLen = 0;
++#endif
++
+ 	if (! IsOk) {
+ 		MyFileClose(refnum);
+ 	}
+@@ -525,6 +646,56 @@ LOCALFUNC blnr Sony_InsertIth(int i)
+ 	return v;
+ }
+ 
++#if IncludeSonyNew
++/*
++	SE WevMac: the Mac asked for a new host file (ExportFl). Make it in
++	/out of the virtual file system, zero filled, and insert it. The
++	page saves it for the user when the Mac ejects it.
++*/
++LOCALPROC MakeNewDisk(ui5b L, ui3p macname, ui5b macnamelen)
++{
++#define ZeroBufferSize 2048
++	char drivepath[64];
++	ui3b buffer[ZeroBufferSize];
++	blnr IsOk = falseblnr;
++	MyFilePtr refnum;
++
++	(void) mkdir("/out", 0777);
++	sprintf(drivepath, "/out/export%u", (unsigned)(++NewDiskCounter));
++	refnum = MyFileOpen(drivepath, "wb+");
++	if (NULL == refnum) {
++		MacMsg(kStrOpenFailTitle, kStrOpenFailMessage, falseblnr);
++	} else {
++		ui5b n = L;
++		blnr wrote = trueblnr;
++
++		memset(buffer, 0, ZeroBufferSize);
++		while (wrote && (n > 0)) {
++			ui5b i = (n > ZeroBufferSize) ? ZeroBufferSize : n;
++			if (MyFileWrite(buffer, 1, i, refnum) != i) {
++				wrote = falseblnr;
++			}
++			n -= i;
++		}
++		if (wrote) {
++			NextInsertIsNew = trueblnr;
++			NextInsertMacName = macname;
++			NextInsertMacNameLen = macnamelen;
++			macname = NULL; /* Sony_Insert0 owns it now */
++			IsOk = Sony_Insert0(refnum, falseblnr, drivepath);
++		} else {
++			MyFileClose(refnum);
++		}
++		if (! IsOk) {
++			(void) remove(drivepath);
++		}
++	}
++	if (NULL != macname) {
++		free(macname);
++	}
++}
++#endif
++
+ LOCALFUNC blnr LoadInitialImages(void)
+ {
+ 	if (! AnyDiskInserted()) {
+@@ -4845,6 +5016,30 @@ LOCALPROC CheckForSavedTasks(void)
+ 	}
+ #endif
+ 
++#if IncludeSonyNew
++	if (vSonyNewDiskWanted) {
++		ui3p macname = NULL;
++		ui5b macnamelen = 0;
++#if IncludeSonyNameNew
++		if (vSonyNewDiskName != NotAPbuf) {
++			macnamelen = PbufSize[vSonyNewDiskName];
++			macname = (ui3p)malloc((0 == macnamelen) ? 1 : macnamelen);
++			if (NULL != macname) {
++				(void) memcpy(macname, PbufDat[vSonyNewDiskName],
++					macnamelen);
++			} else {
++				macnamelen = 0;
++			}
++			PbufDispose(vSonyNewDiskName);
++			vSonyNewDiskName = NotAPbuf;
++		}
++#endif
++		MakeNewDisk(vSonyNewDiskSize, macname, macnamelen);
++		vSonyNewDiskWanted = falseblnr;
++			/* must be done after may have gotten disk */
++	}
++#endif
++
+ 	if (RequestMacOff) {
+ 		RequestMacOff = falseblnr;
+ 		if (AnyDiskInserted()) {
+@@ -5281,6 +5476,25 @@ LOCALPROC UnInitOSGLU(void)
  #endif
  }
  
@@ -12,6 +260,16 @@ index 0cc026b..d8c80af 100644
 +EMSCRIPTEN_KEEPALIVE int wevmac_insert_disk(char *path)
 +{
 +	return Sony_Insert1(path, falseblnr) ? 1 : 0;
++}
++
++/* SE WevMac: nonzero while the Mac wants inserted files raw, as ImportFl does when it is in front. */
++EMSCRIPTEN_KEEPALIVE int wevmac_raw_mode(void)
++{
++#if IncludeSonyRawMode
++	return vSonyRawMode ? 1 : 0;
++#else
++	return 0;
++#endif
 +}
 +#endif
 +

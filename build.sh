@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build SE WevMac: Mini vMac for the Mac SE and SE FDHD, compiled to WebAssembly,
-# with a 1 MB ROM space.
+# with a 1 MB ROM space and the file-transfer features ImportFl and ExportFl use.
 #
 # Needs: emcc (Emscripten) with the SDL2 port, gcc, git.
 set -e
@@ -19,6 +19,8 @@ for V in SE SEFDHD; do
   bash setup.sh
   # A 256K ROM is repeated by the page to fill the 1 MB ROM space.
   sed -i 's/#define kROM_Size .*/#define kROM_Size 0x00100000/' cfg/CNFUDALL.h
+  # ImportFl needs the name of an inserted file, ExportFl needs to make new files.
+  sed -i -E 's/#define (IncludeSonyGetName|IncludeSonyNew|IncludeSonyNameNew) 0/#define \1 1/' cfg/CNFUDALL.h
   mkdir -p wbld_$V; OBJS=""
   for s in $SRCS; do
     # main is renamed so the page decides when the emulator starts.
@@ -26,6 +28,6 @@ for V in SE SEFDHD; do
     OBJS="$OBJS wbld_$V/$s.o"
   done
   emcc $OBJS -O2 -sUSE_SDL=2 -sASYNCIFY -sALLOW_MEMORY_GROWTH=1 -sINVOKE_RUN=0 -sMODULARIZE=1 -sEXPORT_NAME=WevMac_$V \
-    -sEXPORTED_FUNCTIONS='["_vmac_main","_wevmac_insert_disk"]' -sEXPORTED_RUNTIME_METHODS='["FS","ccall"]' \
+    -sEXPORTED_FUNCTIONS='["_vmac_main","_wevmac_insert_disk","_wevmac_raw_mode"]' -sEXPORTED_RUNTIME_METHODS='["FS","ccall"]' \
     -o ../docs/wevmac_$V.js
 done

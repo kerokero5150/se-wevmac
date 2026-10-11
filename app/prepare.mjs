@@ -17,6 +17,7 @@ for (const f of readdirSync(docs)) {
   if (/^wevmac_.*\.(js|wasm)$/.test(f)) cpSync(join(docs, f), join(dist, f));
 }
 cpSync(join(docs, "roms"), join(dist, "roms"), { recursive: true });
+cpSync(join(here, "web", "tools"), join(dist, "tools"), { recursive: true });
 
 const fonts = {
   "silkscreen": [400],
