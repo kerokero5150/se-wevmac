@@ -151,7 +151,7 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
         <ul class="disks" id="disklist"></ul>
         <p class="msg" id="diskmsg" role="status"></p>
         <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes stay in memory until you save the image. Before you press Start, Remove takes a ROM or disk back out; after that, eject disks on the Mac, or press Restart to begin again.</p>
-        <p class="hint">Save writes an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete. Images up to 512 MB.</p>
+        <p class="hint">Save writes an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete.</p>
         <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode. <kbd>⌘</kbd> shortcuts such as <kbd>⌘</kbd><kbd>Q</kbd> go to the Mac inside; quit the app from its menu.</p>
       </div>
     </section>
@@ -168,7 +168,6 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
   var canvas = $("canvas");
   var stockRom = null, ownRom = null, ownName = "";
   var running = false, mod = null, pendingDisks = [], diskCount = 0;
-  var MAX_DISK = 512 * 1024 * 1024;
 
   function say(el, msg, isErr) { el.textContent = msg; el.className = "msg" + (isErr ? " err" : ""); }
 
@@ -403,7 +402,8 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
   function insert(d) {
     var name = d.name;
     var path = "/disk" + (++diskCount) + "_" + name.replace(/[^A-Za-z0-9._-]/g, "_");
-    mod.FS.writeFile(path, d.bytes);
+    try { mod.FS.writeFile(path, d.bytes); }
+    catch (e) { say($("diskmsg"), "Couldn't load " + name + ". There wasn't enough memory for it.", true); return; }
     var ok = mod.ccall("wevmac_insert_disk", "number", ["string"], [path]);
     if (ok) listDisk(name, path, d); else mod.FS.unlink(path);
     say($("diskmsg"), ok ? "Inserted " + name + (d.whole ? " (its HFS partition)." : ".") : "The Mac couldn't take " + name + ". All drives may be full.", !ok);
@@ -464,17 +464,19 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
   };
 
   function takeDisk(f) {
-    if (f.size > MAX_DISK) {
-      say($("diskmsg"), f.name + " is " + Math.round(f.size / 1048576).toLocaleString() + " MB. Disk images can be up to 512 MB.", true);
-      return;
-    }
+    // No size limit here. An image is held in memory, so a very large one can still fail to load.
+    var tooBig = function () {
+      say($("diskmsg"), "Couldn't load " + f.name + " (" + Math.round(f.size / 1048576).toLocaleString() + " MB). There wasn't enough memory for it.", true);
+    };
+    if (f.size > 64 * 1024 * 1024) say($("diskmsg"), "Reading " + f.name + "…");
     readFile(f).then(function (bytes) {
-      var d = prepare(f.name, bytes);
+      var d;
+      try { d = prepare(f.name, bytes); } catch (e) { tooBig(); return; }
       if (d.error) say($("diskmsg"), d.error, true);
       else if (mod) insert(d);
       else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
       else { pendingDisks.push(d); listPending(); say($("diskmsg"), d.name + " will be in the drive at startup."); refresh(); }
-    });
+    }, tooBig);
   }
   $("diskfile").addEventListener("change", function (ev) {
     var f = ev.target.files && ev.target.files[0];
