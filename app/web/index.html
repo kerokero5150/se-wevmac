@@ -127,6 +127,7 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
         <div class="row">
           <span class="filebtn" id="rombtn">Choose ROM…<input type="file" id="romfile" multiple aria-label="Choose a Mac SE ROM file"></span>
           <span class="name" id="romname"></span>
+          <button id="romclear" type="button" hidden>Remove</button>
         </div>
         <label class="opt"><input type="checkbox" id="holdr"> <span>Hold <kbd>R</kbd> at startup to boot from the ROM disk</span></label>
         <p class="msg" id="rommsg" role="status"></p>
@@ -143,7 +144,7 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
         </div>
         <ul class="disks" id="disklist"></ul>
         <p class="msg" id="diskmsg" role="status"></p>
-        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes stay in memory until you save the image.</p>
+        <p class="hint">Insert a .dsk, .img or .hda floppy or hard disk image. The stock ROM needs a startup disk; a ROM-inator image starts from its own ROM disk. Changes stay in memory until you save the image. Before you press Start, Remove takes a ROM or disk back out; after that, eject disks on the Mac, or press Restart to begin again.</p>
         <p class="hint">Save writes an image with the changes you made. Eject the disk on the Mac first (drag it to the Trash, or choose Shut Down), or the copy may be incomplete. Images up to 512 MB.</p>
         <p class="hint">Click the screen to give it the keyboard. Hold <kbd>Ctrl</kbd> for Mini vMac's control mode. <kbd>⌘</kbd> shortcuts such as <kbd>⌘</kbd><kbd>Q</kbd> go to the Mac inside; quit the app from its menu.</p>
       </div>
@@ -197,6 +198,7 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     else cm.textContent = !stockRom ? stockState : "Ready with the stock ROM" + disk;
     $("holdr").disabled = !big;
     if (!big) $("holdr").checked = false;
+    $("romclear").hidden = !ownRom;
   }
 
   var stockState = "Checking the built-in ROM…";
@@ -234,6 +236,15 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     refresh();
     if (info.big) $("holdr").checked = true;
   }
+  // Forget the chosen ROM and go back to the stock one.
+  $("romclear").onclick = function () {
+    if (running) return;
+    ownRom = null; ownName = "";
+    $("romname").textContent = "";
+    if (stockRom) $("rom-stock").checked = true;
+    say($("rommsg"), "");
+    refresh();
+  };
   // Takes the files from the chooser or a drop: one ROM image, or the two 512K halves of a ROM-inator image.
   function takeRom(files) {
     if (running) { say($("rommsg"), "Restart before changing the ROM.", true); return; }
@@ -329,10 +340,31 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     var li = document.createElement("li");
     var n = document.createElement("span"); n.className = "name"; n.textContent = name;
     var b = document.createElement("button"); b.type = "button"; b.textContent = "Save…";
+    b.className = "save";
     b.disabled = !mod;
     b.onclick = function () { download(name, path, d); };
-    li.appendChild(n); li.appendChild(b);
+    li.appendChild(n);
+    var btns = document.createElement("span"); btns.className = "row";
+    if (!mod) {
+      // The Mac hasn't started, so the disk is only waiting and can be dropped from the list.
+      var x = document.createElement("button"); x.type = "button"; x.textContent = "Remove"; x.className = "rm";
+      x.onclick = function () {
+        if (mod || running) return;
+        pendingDisks.splice(pendingDisks.indexOf(d), 1);
+        listPending();
+        say($("diskmsg"), "Removed " + name + ".");
+        refresh();
+      };
+      btns.appendChild(x);
+    }
+    btns.appendChild(b);
+    li.appendChild(btns);
     $("disklist").appendChild(li);
+  }
+  // Redraw the waiting disks. Their drive order, and so their file names, follow the list.
+  function listPending() {
+    $("disklist").textContent = "";
+    pendingDisks.forEach(function (d, i) { listDisk(d.name, "/disk" + (i + 1) + ".dsk", d); });
   }
   function download(name, path, d) {
     var bytes;
@@ -381,6 +413,8 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
     $("curtainmsg").textContent = "Starting…";
     $("rom-stock").disabled = $("rom-own").disabled = true;
     $("rombtn").classList.add("off");
+    $("romclear").hidden = true;
+    Array.prototype.forEach.call($("disklist").querySelectorAll("button.rm"), function (b) { b.disabled = true; });
     var holdR = $("holdr").checked;
     $("holdr").disabled = true;
     // The build has a 1 MB ROM space. A 256K ROM is repeated to fill it, as it is mirrored on the real machine.
@@ -396,7 +430,8 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
       mod = m;
       m.FS.writeFile(info.variant === "SE" ? "MacSE.ROM" : "SEFDHD.ROM", image);
       pendingDisks.forEach(function (d, i) { m.FS.writeFile("disk" + (i + 1) + ".dsk", d.bytes); });
-      Array.prototype.forEach.call($("disklist").querySelectorAll("button"), function (b) { b.disabled = false; });
+      Array.prototype.forEach.call($("disklist").querySelectorAll("button.rm"), function (b) { b.remove(); });
+      Array.prototype.forEach.call($("disklist").querySelectorAll("button.save"), function (b) { b.disabled = false; });
       $("curtain").hidden = true;
       canvas.focus();
       if (holdR) {
@@ -432,7 +467,7 @@ body.dropping .wrap { outline: 3px dashed var(--accent); outline-offset: -8px; }
       if (d.error) say($("diskmsg"), d.error, true);
       else if (mod) insert(d);
       else if (pendingDisks.length >= 6) say($("diskmsg"), "Six disks are already waiting.", true);
-      else { pendingDisks.push(d); listDisk(d.name, "/disk" + pendingDisks.length + ".dsk", d); say($("diskmsg"), d.name + " will be in the drive at startup."); refresh(); }
+      else { pendingDisks.push(d); listPending(); say($("diskmsg"), d.name + " will be in the drive at startup."); refresh(); }
     });
   }
   $("diskfile").addEventListener("change", function (ev) {
