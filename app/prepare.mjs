@@ -12,6 +12,7 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(join(dist, "fonts"), { recursive: true });
 
 cpSync(join(here, "web", "index.html"), join(dist, "index.html"));
+cpSync(join(here, "web", "logo.png"), join(dist, "logo.png"));
 for (const f of readdirSync(docs)) {
   if (/^wevmac_.*\.(js|wasm)$/.test(f)) cpSync(join(docs, f), join(dist, f));
 }
