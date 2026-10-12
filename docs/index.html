@@ -85,6 +85,16 @@ label.opt input { margin-top: 4px; }
 kbd { font: 12px var(--font-mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
 footer { color: var(--muted); font-size: 12px; }
 footer a { color: inherit; }
+/* Black desk, matching the other Kero's Mac Mods tools */
+html, body { background: #000; color-scheme: dark; }
+body { color: #f1f1ec; }
+header h1 { color: #f1f1ec; }
+header h1 b { color: #6fc9b2; }
+header p, footer { color: #9c9c95; }
+.logo { background: #f1f1ec; }
+.win { color: var(--ink); box-shadow: 0 0 0 1px #9c9c95, 3px 3px 0 1px #9c9c95; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .win { color-scheme: dark; } }
+:root[data-theme="dark"] .win { color-scheme: dark; }
 </style>
 </head>
 <body>
