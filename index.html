@@ -95,6 +95,13 @@ header p, footer { color: #9c9c95; }
 .win { color: var(--ink); box-shadow: 0 0 0 1px #9c9c95, 3px 3px 0 1px #9c9c95; color-scheme: light; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .win { color-scheme: dark; } }
 :root[data-theme="dark"] .win { color-scheme: dark; }
+/* SE vMac Desktop box */
+.desk { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 20px; align-items: center; }
+@media (max-width: 640px) { .desk { grid-template-columns: minmax(0, 1fr); } }
+.desk ul { margin: 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 3px; }
+a.dl { display: inline-flex; align-items: center; justify-content: center; font: 600 14px var(--font-body); text-decoration: none; color: var(--paper); background: var(--ink); border: 1.5px solid var(--line); border-radius: 7px; padding: 8px 16px; min-height: 38px; white-space: nowrap; }
+a.dl:hover { background: var(--paper); color: var(--ink); }
+a.dl:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -155,6 +162,25 @@ header p, footer { color: #9c9c95; }
       </div>
     </section>
   </div>
+
+  <section class="win">
+    <h2><span>SE vMac Desktop</span></h2>
+    <div class="body">
+      <div class="desk">
+        <div>
+          <p style="margin:0 0 8px">Rather have an app? <b>SE vMac Desktop</b> is this same emulator as a Mac application.</p>
+          <ul>
+            <li>Works offline, the stock ROM is built in</li>
+            <li>Drag and drop ROMs and disk images onto the window</li>
+            <li>Saves disks with the normal Mac save dialog, no size limit</li>
+            <li>ImportFl and ExportFl built in, to move files in and out of the emulated Mac</li>
+          </ul>
+        </div>
+        <a class="dl" href="https://github.com/kerokero5150/se-wevmac/releases/latest" target="_blank" rel="noopener">Download for Mac</a>
+      </div>
+      <p class="hint">Free. One app for Intel and Apple Silicon Macs. It isn't notarized, so the first time: right-click it and choose Open (macOS 14 and older), or open it once and then click Open Anyway in System Settings &rsaquo; Privacy &amp; Security (macOS 15 and newer).</p>
+    </div>
+  </section>
 
   <footer>Built on <a href="https://www.gryphel.com/c/minivmac/" target="_blank" rel="noopener">Mini vMac</a> by Paul C. Pratt and contributors, GPL v2. <a id="srclink" href="https://github.com/kerokero5150/se-wevmac" target="_blank" rel="noopener">Source for this build</a>. A Kero's Mac Mods tool.</footer>
 </div>
